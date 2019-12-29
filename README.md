@@ -123,9 +123,19 @@ cryptsetup luksClose cryptroot
 
 reboot
 
+# Setup Snapper
+pacman -S snapper
+snapper -c root create-config /
+btrfs subvolume delete /.snapshots/
+mkdir /.snapshots
+nano /etc/fstab (automatic mount @snapshots to /.snapshots)
+mount -a
+chmod 750 /.snapshots
+pacman -S grub-btrfs
+pacman -S snap-pac
+Install package „snap-pac-grub“ from AUR
 
-
-
+Snapper can be configured in /etc/snapper/configs/root
 
 
 
