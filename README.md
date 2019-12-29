@@ -1,4 +1,5 @@
 # Encrypted-Arch
+Based on https://www.youtube.com/watch?v=OTrZcIG4gDE
 
 ## Partitioning
 ##### 3 Filesystems
