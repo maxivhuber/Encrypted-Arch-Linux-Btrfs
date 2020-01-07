@@ -1,0 +1,268 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[german]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{color}
+
+\author{Maximilian Huber}
+\title{Arch-Linux}
+\date{\today}
+\setlength{\parindent}{0pt}
+
+\begin{document}
+
+\begin{titlepage}
+\maketitle
+\thispagestyle{empty}
+\end{titlepage}
+
+\tableofcontents
+\thispagestyle{empty}	
+\cleardoublepage
+\setcounter{page}{1}
+
+\section{Partitionierung}
+\begin{table}[h]
+\begin{tabular}{|p{3cm}|p{3cm}|p{3cm}| p{3cm} |}
+\hline
+Mount point on the installed system & Partition & Partition type   &  Suggested size \\ \hline
+/boot/efi & /dev/sda1  & EFI system partition (code:ef00)  & 512M \\ \hline
+swap & /dev/sda2  & Linux swap(code:8200)  & RAM > 8GB? mind. 4GB : RAM*2 \\ \hline
+subvolid=5 & /dev/sda3  & Luks Filesystem (code:8309)  & rest  \\ \hline
+\end{tabular}
+\caption{Empfohlenes Layout}
+\end{table}
+
+Das Filesystem und die swap Partition werden in einen verschlüsselten Container gepackt!\\
+
+Unsere Verschlüsselte System Partition bekommt ein Flaches BTRFS-Layout (vgl. https://btrfs.wiki.kernel.org/index.php/SysadminGuide\#Layout)
+
+Je nach alter müssen eventuell kleinere Dinge abgeändert werden wie z.B. die Pakete.
+
+Es sollten unbedingt aktuelle Verschlüsselungsalgorithmen benutzt werden!
+\section{Formatierung}
+\begin{itemize}
+\item EFI-System Partition:
+
+mkfs.vfat -F 32 -n EFI /dev/sdx
+
+\item Linux Dateisystem:
+\begin{enumerate}
+\item cryptsetup luksFormat -{}-\textcolor{red}{\text{type luks1 -h sha512 -s 512 -{}-iter-time 5000}}  /dev/sdx
+\item cryptsetup luksOpen /dev/sdx 	cryptroot
+\item mkfs.btrfs -L arch-crypt /dev/mapper/cryptroot
+\item mount /dev/mapper/cryptroot /mnt
+\item btrfs subvolume create /mnt/@
+\item btrfs subvolume create /mnt/@home
+\item btrfs subvolume create /mnt/@cache
+\item btrfs subvolume create /mnt/@log
+\item btrfs subvolume create /mnt/@spool
+\item btrfs subvolume create /mnt/@temp
+\item btrfs subvolume create /mnt/@snapshots
+\item btrfs subvolume create /mnt/@srv
+\item ls /mnt (zeigt die erstellten Verzeichnisse an)
+\item umount /mnt
+\item mount -o compress=zstd,subvol=@ /dev/mapper/cryptroot /mnt
+\item mkdir -p /mnt/\{home,.snapshots,var/cache,var/log,/var/spool,var/temp,boot/efi,btrfs,srv\}
+\item mount -o compress=zstd,subvol=@home /dev/mapper/cryptroot /mnt/home/
+\item mount -o compress=zstd,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
+\item mount -o compress=zstd,subvol=@cache /dev/mapper/cryptroot /mnt/var/cache
+\item mount -o compress=zstd,subvol=@log /dev/mapper/cryptroot /mnt/var/log
+\item mount -o compress=zstd,subvol=@spool /dev/mapper/cryptroot /mnt/var/spool
+\item mount -o compress=zstd,subvol=@temp /dev/mapper/cryptroot /mnt/var/temp
+\item mount -o compress=zstd,subvol=@srv /dev/mapper/cryptroot /mnt/srv
+\item mount -o compress=zstd,subvolid=5 /dev/mapper/cryptroot /mnt/btrfs (optional! stellt nur das top-level btrfs im System da )
+\item mount /dev/sda1 /mnt/boot/efi
+\item df -Th (Überprüfung)
+\end{enumerate}
+\end{itemize}
+\section{Basis Betriebssystem installieren}
+Befehl:
+
+pacstrap /mnt base base-devel linux linux-headers linux-firmware  \textcolor{red}{\text{ intel-ucode}} bash-completion btrfs-progs dosfstools grub efibootmgr dhcpcd nano cryptsetup
+\section{Einrichten des Betriebssystems}
+\begin{itemize}
+\item genfstab -U /mnt >{}> /mnt/etc/fstab
+\item arch-chroot /mnt
+\item fstab nachberarbeiten (mounten nur mit subvol=@x bzw subvolid für root)
+\item echo hostname > /etc/hostname
+\item echo LANG=de\_DE.UTF-8 > /etc/locale.conf
+\item echo LANGUAGE=de\_DE >{}> /etc/locale.conf
+\item echo KEYMAP=de-latin1 > /etc/vconsole.conf
+\item ln -s /usr/share/zoneinfo/Europe/Berlin /etc/localtime
+\item useradd -m -g users -G wheel,audio,video -s /bin/bash username
+\item passwd \glqq{}name\grqq{}
+\item EDITOR=nano visudo
+
+Einkommentieren: \%wheel ALL=(ALL) ALL
+\item nano /etc/locale.gen
+
+Einkommentieren: de\_DE.UTF-8
+\item locale-gen
+
+\end{itemize}
+\section{Installation und Einrichtung der GUI}
+\begin{itemize}
+\item pacman -S xorg-server xorg-xinit xorg-server-xephyr ttf-dejavu \textcolor{red}{\text{xfce4 xfce4-goodies}} lightdm \textcolor{red}{\text{ lightdm-webkit2-greeter nvidia}}  networkmanager network-manager-applet nm-connection-editor alsa alsa-tools alsa-utils pulseaudio-alsa pavucontrol cronie ntp avahi acpid
+\item in \glqq{}/etc/lightdm/lightdm.conf\grqq{} \textbf{unter} [Seat:*] 
+
+greeter-session=\textcolor{red}{\text{ lightdm-webkit2-greeter}} 
+
+hinzufügen.
+\item systemctl enable dhcpcd acpid avahi-daemon cronie ntpd NetworkManager lightdm
+\item ntpd -gq
+\item localectl set-x11-keymap de (Wenn nicht möglich kann dieser Schritt ohne Probleme verschoben werden)
+\end{itemize}
+\subsection{Gnome Pakete}
+Möchten wir eine Gnome Installation, können wir anstatt der xfce4 Pakete, die Paketgruppe \textcolor{red}{\text{gnome }} installieren.
+
+Wichtige Pakete die man auswählen sollte sind:\\
+
+eog evince file-roller gnome-control-center gnome-disk-utility gnome-font-viewer gnome-keyring gnome-menus gnome-screenshot gnome-settings-daemon gnome-shell gnome-system-monitor gnome-terminal  gnome-themes-extra gvfs mousetweaks mutter nautilus rygel tracker xdg-user-dirs-gtk gnome-software 
+\section{Systemkonfiguration }
+\begin{itemize}
+\item Wir müssen die UUID unserer verschlüsselten Partition herausfinden
+\item blkid
+\item blkid /dev/sdx >{}> /etc/default/grub
+\item Fortfahren mit Video 1 (15:58 - 16:49)
+\item grub-install -{}-target=x86\_64-efi -{}-efi-directory=/boot/efi -{}-bootloader-id=arch-crypt 
+\item grub-mkconfig -o /boot/grub/grub.cfg
+\item dd bs=512 count=4 if=/dev/random of=/crypto\_keyfile.bin iflag=fullblock
+\item chmod 600 /crypto\_keyfile.bin
+\item chmod 600 /boot/initramfs-linux*
+\item cryptsetup luksAddKey /dev/sdx /crypto\_keyfile.bin
+\item nano /etc/mkinitcpio.conf
+
+Fortfahren mit Video 1 (21:11 - 22:37)
+\item FSCK HOOK kann entfernt werden da btrfs eigene Tools besitzt z.B. btrfs.scrub
+\item mkinitcpio -p linux
+\item exit
+\item umount -R /mnt
+\item cryptsetup luksClose cryptroot
+\item reboot
+\end{itemize}
+Folgende Befehle können benutzt werden um den Auto-Login in lightdm zu aktivieren(nur wenn eine Person den PC benutzt):
+\begin{itemize}
+\item nano /etc/lightdm/lightdm.conf
+
+Unter [Seat:*] kann autologin-user=username einkommentiert werden.
+\item groupadd -r autologin
+\item gpasswd -a username autologin 
+\end{itemize}
+\section{Verschlüsselter Swap}
+https://wiki.archlinux.org/index.php/Dm-crypt/Swap\_encryption\#With\_suspend-to-disk\_support
+\begin{itemize}
+\item cryptsetup luksFormat -{}-\textcolor{red}{\text{type luks1 -h sha512 -s 512 -{}-iter-time 5000}}  /dev/sdx
+
+\item cryptsetup open /dev/sdx swapDevice
+\item mkswap -L SWAP /dev/mapper/swapDevice
+\item Dateien in /etc/initcpio/*/openswap anlegen.
+
+nach: https://wiki.archlinux.org/index.php/Dm-crypt/Swap\_encryption\#mkinitcpio\_hook
+\item dd bs=512 count=4 if=/dev/urandom of=/etc/keyfile-cryptswap.bin
+\item chmod 600 /etc/keyfile-cryptswap.bin
+\item cryptsetup luksAddKey /dev/sdx /etc/keyfile-cryptswap.bin
+\item blkid /dev/mapper/swapDevice >{}> /etc/fstab
+\item Fortfahren mit Video 2 (5:33 - 6:05)
+\item swapon -a
+\item nano /etc/mkinitcpio.conf 
+\item Fortfahren mit Video 2 (6:17 - 6:45)
+\item blkid /dev/mapper/swapDevice >{}> /etc/default/grub
+\item nano /etc/default/grub
+\item Fortfahren mit Video 2 (7:08 - 7:20)
+\item Dateien in /etc/initcpio/*/openswap anpassen
+\item grub-mkconfig -o /boot/grub/grub.cfg
+\item mkinitcpio -p linux 
+\end{itemize}
+Wenn wir in GNOME den Computer Hibernaten lassen wollen, müssen wir im Menü zum ausschalten den ALT Key drücken.
+\section{Snapshots}
+\subsection{Snapshot manuell}
+\begin{itemize}
+\item mount -o compress=zstd,subvolid=5 /dev/mapper/cryptroot /btrfs
+\item ls /btrfs (Es werden alle subol. angezeit weil wir das top-level-btrfs gemountet haben)
+\item btrfs subvolume snapshot -r /btrfs/@ /btrfs/@snapshots/@\$(date +\%Y-\%m-\%d)
+
+Ein Snapshot von @ (also /) wird nach @snapshots/date gebracht (also /.snapshots/date)
+\end{itemize}
+\subsection{Snapshot löschen}
+Jeder Snapshot ist gleichzeitig ein Subvolume!
+
+btrfs subvolume delete /btrfs/@snapshots/@2019-12-30
+
+\subsection{Snapper}
+\subsubsection{Einrichten}
+\begin{itemize}
+\item umount /.snapshots
+\item rmdir /.snapshots/
+\item snapper -c root create-config /
+\item btrfs subvolume delete /.snapshots/
+\item mkdir /.snapshots
+\item chmod 750 /.snapshots
+\item mount -a
+\item nano /etc/snapper/configs/root
+
+Konfiguration von Snapper anpassen
+\subsubsection{Anders}
+Snapper wird in .snapshots automatisch snapshots anlegen die man mit den obigen Kommandos bearbeiten kann.
+Es können auch weitere tools wie z.B. snap-pac, snap-sync genutzt werden.
+\end{itemize}
+
+\subsection{Snapshot wiederherstellen}
+\begin{itemize}
+\item https://wiki.archlinux.org/index.php/Snapper\#Restoring\_/\_to
+
+\_a\_previous\_snapshot\_of\_@
+\item top level btrfs mounten!
+\item Wenn @broken schon existiert können wir das Verzeichnis löschen
+
+rm -R /btrfs/@broken
+
+Das subvolume wird automatisch entfernt
+\item mv /btrfs/@ /btrfs/@broken
+\item btrfs subvol snapshot /btrfs/@snapshots/\#/snapshot /btrfs/@
+\item reboot
+\end{itemize}
+Möchten wird das jetzt nicht mehr aktive / Verzeichnis wieder nutzen, können wir das folgendermaßen tun:
+\begin{itemize}
+\item mv /btrfs/@ /btrfs/@broken2
+\item /btrfs/@broken /btrfs/@
+\item reboot
+\end{itemize}
+
+
+ 
+\section{Wichige Programme}
+\begin{itemize}
+\item Repos:
+
+thunderbird-i18n-de firefox-i18n-de chromium intellij-idea-community-edition texmaker texlive-most hunspell-de veracrypt discord jdk-openjdk vlc rhythmbox virtualbox virtualbox-guest-iso code transmission-gtk flatpak gradle seahorse filezilla reflector gnome-chrome-shell plank gnome-tweaks neofetch
+\item Flatpak:
+
+Dropbox, Android Studio, Sublime, Steam, Video Downloader
+\item AUR:
+
+Github-Desktop, Cryptomator, Moodle-Desktop, Joplin(braucht nodejs und npm)
+
+Tipp: makepkg -sic
+
+\item Empfohlene Gnome Extensions
+
+Impatience, NetSpeed, Arch Linux Updates Indicator, Show Applications, User Themes, Hibernate Status Button, Alternate Tab
+
+\item List of applications:
+
+https://wiki.archlinux.org/index.php/list\_of\_applications
+
+\end{itemize}
+
+\section{Video Referenzen}
+\subsection{Video 1}
+https://www.youtube.com/watch?v=OTrZcIG4gDE
+\subsection{Video 2}
+https://www.youtube.com/watch?v=yMqWrt17Z18
+
+\end{document}
