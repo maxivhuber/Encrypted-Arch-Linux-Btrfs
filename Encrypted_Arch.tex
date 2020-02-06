@@ -31,23 +31,26 @@
 \hline
 Mount point on the installed system & Partition & Partition type   &  Suggested size \\ \hline
 /boot/efi & /dev/sda1  & EFI system partition (code:ef00)  & 512M \\ \hline
-swap & /dev/sda2  & Linux swap(code:8200)  & RAM > 8GB? mind. 4GB : RAM*2 \\ \hline
+swap & /dev/sda2  & Linux swap(code:8200)  & RAM größer als  8GB? 
+
+Wenn: mind. 4GB  
+
+Wenn nicht: RAM*2 \\ \hline
 subvolid=5 & /dev/sda3  & Luks Filesystem (code:8309)  & rest  \\ \hline
 \end{tabular}
 \caption{Empfohlenes Layout}
 \end{table}
 
-Das Filesystem und die swap Partition werden in einen verschlüsselten Container gepackt!\\
+Das Dateisystem und die SWAP Partition werden in einen verschlüsselten Container gepackt!\\
 
-Unsere Verschlüsselte System Partition bekommt ein Flaches BTRFS-Layout (vgl. https://btrfs.wiki.kernel.org/index.php/SysadminGuide\#Layout)
+Unsere Verschlüsselte System Partition bekommt ein Flaches BTRFS-Layout (vgl. https://btrfs.wiki.kernel.org/index.php/SysadminGuide\#Flat\#Layout)
 
-Je nach Alter müssen eventuell kleinere Dinge abgeändert werden wie z.B. die Pakete.
 
-Es sollten unbedingt aktuelle Verschlüsselungsalgorithmen benutzt werden!
+Aktuell unterstützt GRUB nur Luks-1 Container.
 \section{Formatierung}
 \subsection{Vorweg}
 Wenn ihr in die Live-Umgebung bootet, ist zu empfehlen sich mit ssh auf den Rechner aufzuschalten, um Befehle mit copy\&paste einzufügen.
-Dafür müsst ihr in der Live-Umgebung ein Passwort für root setzen und den sshd Service starten.
+Dafür müsst ihr in der Live-Umgebung ein Passwort für root setzen und den sshd service starten.
 \subsection{Formatierung}
 \begin{itemize}
 \item EFI-System Partition:
@@ -56,7 +59,7 @@ mkfs.vfat -F 32 -n EFI /dev/sdx
 
 \item Linux Dateisystem:
 \begin{enumerate}
-\item cryptsetup luksFormat -{}-\textcolor{red}{\text{type luks1 -h sha512 -s 512 -{}-iter-time 5000}}  /dev/sdx
+\item cryptsetup luksFormat -{}-\textcolor{red}{\text{type luks1 }}  /dev/sdx
 \item cryptsetup luksOpen /dev/sdx 	cryptroot
 \item mkfs.btrfs -L arch-crypt /dev/mapper/cryptroot
 \item mount /dev/mapper/cryptroot /mnt
@@ -87,18 +90,18 @@ mkfs.vfat -F 32 -n EFI /dev/sdx
 \section{Basis Betriebssystem installieren}
 Befehl:
 
-pacstrap /mnt base base-devel linux linux-headers \textcolor{red}{\text{linux-hardened linux-hardened-headers}} linux-firmware  \textcolor{red}{\text{ intel-ucode}} bash-completion btrfs-progs dosfstools grub efibootmgr dhcpcd nano cryptsetup
+pacstrap /mnt base base-devel linux linux-headers  linux-firmware  \textcolor{red}{\text{ intel-ucode}} bash-completion btrfs-progs dosfstools grub efibootmgr dhcpcd nano cryptsetup
 \section{Einrichten des Betriebssystems}
 \begin{itemize}
 \item genfstab -U /mnt >{}> /mnt/etc/fstab
 \item arch-chroot /mnt
 \item fstab nachberarbeiten (https://wiki.archlinux.de/title/Arch\_auf\_BtrFS\#fstab\_bearbeiten) + btrfs top-level auskommentieren
-\item echo hostname > /etc/hostname
+\item echo \grqq{}hostname\grqq{} > /etc/hostname
 \item echo LANG=de\_DE.UTF-8 > /etc/locale.conf
 \item echo LANGUAGE=de\_DE >{}> /etc/locale.conf
 \item echo KEYMAP=de-latin1 > /etc/vconsole.conf
 \item ln -s /usr/share/zoneinfo/Europe/Berlin /etc/localtime
-\item useradd -m -g users -G wheel,audio,video -s /bin/bash username
+\item useradd -m -g users -G wheel,audio,video -s /bin/bash \glqq{}username\grqq{} 
 \item passwd \glqq{}name\grqq{}
 \item EDITOR=nano visudo
 
@@ -111,7 +114,7 @@ Einkommentieren: de\_DE.UTF-8
 \end{itemize}
 \section{Installation und Einrichtung der GUI}
 \begin{itemize}
-\item pacman -S xorg-server xorg-xinit xorg-server-xephyr ttf-dejavu \textcolor{red}{\text{xfce4 xfce4-goodies}} lightdm \textcolor{red}{\text{ lightdm-webkit2-greeter nvidia}}  networkmanager network-manager-applet nm-connection-editor alsa alsa-tools alsa-utils pulseaudio-alsa pavucontrol cronie ntp avahi acpid
+\item pacman -S xorg-server xorg-xinit ttf-dejavu \textcolor{red}{\text{xfce4 xfce4-goodies}} lightdm \textcolor{red}{\text{ lightdm-webkit2-greeter nvidia}}  networkmanager network-manager-applet nm-connection-editor alsa alsa-tools alsa-utils pulseaudio-alsa pavucontrol cronie ntp avahi acpid
 \item in \glqq{}/etc/lightdm/lightdm.conf\grqq{} \textbf{unter} [Seat:*] 
 
 greeter-session=\textcolor{red}{\text{ lightdm-webkit2-greeter}} 
@@ -155,7 +158,7 @@ Folgende Befehle können benutzt werden um den Auto-Login in lightdm zu aktivier
 
 Unter [Seat:*] kann autologin-user=username einkommentiert werden.
 \item groupadd -r autologin
-\item gpasswd -a username autologin 
+\item gpasswd -a \glqq{}username\grqq{} autologin 
 \end{itemize}
 \section{Verschlüsselter Swap}
 https://wiki.archlinux.org/index.php/Dm-crypt/Swap\_encryption\#With\_suspend-to-disk\_support
@@ -182,24 +185,13 @@ nach: https://wiki.archlinux.org/index.php/Dm-crypt/Swap\_encryption\#mkinitcpio
 \item grub-mkconfig -o /boot/grub/grub.cfg
 \item mkinitcpio -p linux 
 \end{itemize}
-Wenn wir in GNOME den Computer Hibernaten lassen wollen, müssen wir im Menü zum ausschalten den ALT Key drücken.
+
 \section{Snapshots}
-\subsection{Snapshot manuell}
-\begin{itemize}
-\item mount -o compress=zstd,subvolid=5 /dev/mapper/cryptroot /btrfs
-\item ls /btrfs (Es werden alle subol. angezeit weil wir das top-level-btrfs gemountet haben)
-\item btrfs subvolume snapshot -r /btrfs/@ /btrfs/@snapshots/@\$(date +\%Y-\%m-\%d)
-
-Ein Snapshot von @ (also /) wird nach @snapshots/date gebracht (also /.snapshots/date)
-\end{itemize}
-\subsection{Snapshot löschen}
-Jeder Snapshot ist gleichzeitig ein Subvolume!
-
-btrfs subvolume delete /btrfs/@snapshots/@2019-12-30
 
 \subsection{Snapper}
 \subsubsection{Einrichten}
 \begin{itemize}
+\item pacman -S snapper
 \item umount /.snapshots
 \item rmdir /.snapshots/
 \item snapper -c root create-config /
@@ -210,9 +202,8 @@ btrfs subvolume delete /btrfs/@snapshots/@2019-12-30
 \item nano /etc/snapper/configs/root
 
 Konfiguration von Snapper anpassen
-\subsubsection{Anders}
-Snapper wird in .snapshots automatisch snapshots anlegen die man mit den obigen Kommandos bearbeiten kann.
-Es können auch weitere tools wie z.B. snap-pac, snap-sync genutzt werden.
+\subsubsection{Nutzung}
+Snapper wird in .snapshots automatisch snapshots wenn tools wie z.B. snap-pac oder snap-sync genutzt werden.
 \end{itemize}
 
 \subsection{Snapshot wiederherstellen}
@@ -230,15 +221,15 @@ Das subvolume wird automatisch entfernt
 \item btrfs subvol snapshot /btrfs/@snapshots/\#/snapshot /btrfs/@
 \item reboot
 \end{itemize}
-Möchten wird das jetzt nicht mehr aktive / Verzeichnis wieder nutzen, können wir das folgendermaßen tun:
+Möchten wird das jetzt nicht mehr aktive \glqq{}Verzeichnis\grqq/{} wieder nutzen, können wir das folgendermaßen tun:
 \begin{itemize}
-\item mv /btrfs/@ /btrfs/@broken
+\item mv /btrfs/@ /btrfs/@broken2
 \item /btrfs/@broken /btrfs/@
 \item reboot
 \end{itemize}
 
 \section{System Emergency Resuce}
-Ist das System nicht mehr Bootbar müssen wir von einer Live-CD(https://www.archlinux.de/download) booten und das @ subvolume austauschen.
+Ist das System nicht mehr bootbar, müssen wir von einer Live-CD(https://www.archlinux.de/download) booten und das @ subvolume austauschen.
 Dafür müssen wir folgende Schritte durchführen.
 \begin{itemize}
 \item loadkeys de
@@ -262,15 +253,17 @@ Nach einem erfolgreichem Reboot kann das neue subvolume @broken entfernen:
 \begin{itemize}
 \item Repos:
 
-thunderbird-i18n-de firefox-i18n-de chromium intellij-idea-community-edition texmaker texlive-most hunspell-de veracrypt discord jdk-openjdk vlc rhythmbox virtualbox virtualbox-guest-iso code transmission-gtk flatpak gradle seahorse filezilla reflector chrome-gnome-shell plank gnome-tweaks neofetch dconf-editor
+thunderbird-i18n-de firefox-i18n-de chromium intellij-idea-community-edition texmaker texlive-most hunspell-de veracrypt discord jdk-openjdk vlc rhythmbox code transmission-gtk flatpak gradle reflector chrome-gnome-shell plank gnome-tweaks neofetch dconf-editor
 \item Flatpak:
 
-Dropbox, Android Studio, Sublime, Steam, Video Downloader
+Dropbox, Android Studio, Sublime, Steam
 \item AUR:
 
-Github-Desktop, Cryptomator, Moodle-Desktop, Trizen, Lastpass
+\glqq{}trizen\grqq{} als AUR helper
 
-Tipp: makepkg -sic
+Github-Desktop
+
+Tipp bei manueller Installation von eine AUR package: makepkg -sic
 
 \item Empfohlene Gnome Extensions
 
