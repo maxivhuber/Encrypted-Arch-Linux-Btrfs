@@ -90,7 +90,7 @@ mkfs.vfat -F 32 -n EFI /dev/sdx
 \section{Basis Betriebssystem installieren}
 Befehl:
 
-pacstrap /mnt base base-devel linux linux-headers  linux-firmware  \textcolor{red}{\text{ intel-ucode}} bash-completion btrfs-progs dosfstools grub efibootmgr dhcpcd nano cryptsetup
+pacstrap /mnt base base-devel linux linux-headers  linux-firmware  \textcolor{red}{\text{ intel-ucode}} bash-completion btrfs-progs dosfstools grub efibootmgr nano cryptsetup
 \section{Einrichten des Betriebssystems}
 \begin{itemize}
 \item genfstab -U /mnt >{}> /mnt/etc/fstab
@@ -114,15 +114,21 @@ Einkommentieren: de\_DE.UTF-8
 \end{itemize}
 \section{Installation und Einrichtung der GUI}
 \begin{itemize}
-\item pacman -S xorg-server xorg-xinit ttf-dejavu \textcolor{red}{\text{xfce4 xfce4-goodies}} lightdm \textcolor{red}{\text{ lightdm-webkit2-greeter nvidia}}  networkmanager network-manager-applet nm-connection-editor alsa alsa-tools alsa-utils pulseaudio-alsa pavucontrol cronie ntp avahi acpid
+\item Netzwerkverbindung konfigurieren:
+
+https://wiki.archlinux.org/index.php/Systemd-networkd\#Configuration\_examples
+\item systemctl start systemd-networkd
+\item pacman -S xorg-server xorg-xinit ttf-dejavu \textcolor{red}{\text{xfce4 xfce4-goodies}} lightdm \textcolor{red}{\text{ lightdm-webkit2-greeter nvidia}}  networkmanager network-manager-applet nm-connection-editor alsa alsa-tools alsa-utils pulseaudio-alsa pavucontrol cronie avahi acpid
 \item in \glqq{}/etc/lightdm/lightdm.conf\grqq{} \textbf{unter} [Seat:*] 
 
 greeter-session=\textcolor{red}{\text{ lightdm-webkit2-greeter}} 
 
 hinzufügen.
-\item systemctl enable dhcpcd acpid avahi-daemon cronie ntpd NetworkManager lightdm
-\item ntpd -gq
-\item localectl set-x11-keymap de (Wenn nicht möglich kann dieser Schritt ohne Probleme verschoben werden)
+\item systemctl enable acpid avahi-daemon cronie NetworkManager lightdm systemd-timesyncd.service
+\item timedatectl set-ntp true 
+\item date
+\item hwclock -w
+\item localectl set-x11-keymap de pc105 nodeadkeys (Wenn nicht möglich kann dieser Schritt ohne Probleme verschoben werden)
 \end{itemize}
 \subsection{Gnome Pakete}
 Möchten wir eine Gnome Installation, können wir anstatt der xfce4 Pakete, die Paketgruppe \textcolor{red}{\text{gnome }} installieren.
