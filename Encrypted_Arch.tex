@@ -90,7 +90,7 @@ mkfs.vfat -F 32 -n EFI /dev/sdx
 \section{Basis Betriebssystem installieren}
 Befehl:
 
-pacstrap /mnt base base-devel linux linux-headers  linux-firmware  \textcolor{red}{\text{ intel-ucode}} bash-completion btrfs-progs dosfstools grub efibootmgr nano cryptsetup
+pacstrap /mnt base base-devel linux linux-firmware bash-completion btrfs-progs dosfstools grub efibootmgr nano cryptsetup
 \section{Einrichten des Betriebssystems}
 \begin{itemize}
 \item genfstab -U /mnt >{}> /mnt/etc/fstab
@@ -112,30 +112,24 @@ Einkommentieren: de\_DE.UTF-8
 \item locale-gen
 
 \end{itemize}
-\section{Installation und Einrichtung der GUI}
+\section{Installation und Einrichtung von Gnome}
 \begin{itemize}
 \item Netzwerkverbindung konfigurieren:
 
 https://wiki.archlinux.org/index.php/Systemd-networkd\#Configuration\_examples
 \item systemctl start systemd-networkd
-\item pacman -S xorg-server xorg-xinit ttf-dejavu \textcolor{red}{\text{xfce4 xfce4-goodies}} lightdm \textcolor{red}{\text{ lightdm-webkit2-greeter nvidia}}  networkmanager network-manager-applet nm-connection-editor alsa alsa-tools alsa-utils pulseaudio-alsa pavucontrol cronie avahi acpid
+\item pacman -S xorg-server xorg-xinit gnome-shell gnome-control-center chrome-gnome-shell gnome-keyring gnome-tweaks file-roller nautilus gnome-terminal lightdm lightdm-pantheon-greeter
 \item in \glqq{}/etc/lightdm/lightdm.conf\grqq{} \textbf{unter} [Seat:*] 
 
-greeter-session=\textcolor{red}{\text{ lightdm-webkit2-greeter}} 
+greeter-session=\textcolor{red}{\text{ io.elementary.greeter}} 
 
 hinzufügen.
-\item systemctl enable acpid avahi-daemon cronie NetworkManager lightdm systemd-timesyncd.service
-\item timedatectl set-ntp true 
+\item systemctl enable lightdm systemd-timesyncd.service systemd-networkd
 \item date
 \item hwclock -w
 \item localectl set-x11-keymap de pc105 nodeadkeys (Wenn nicht möglich kann dieser Schritt ohne Probleme verschoben werden)
 \end{itemize}
-\subsection{Gnome Pakete}
-Möchten wir eine Gnome Installation, können wir anstatt der xfce4 Pakete, die Paketgruppe \textcolor{red}{\text{gnome }} installieren.
 
-Wichtige Pakete die man auswählen sollte sind:\\
-
-eog evince file-roller gnome-control-center gnome-disk-utility gnome-font-viewer gnome-keyring gnome-menus gnome-screenshot gnome-settings-daemon gnome-shell gnome-system-monitor gnome-terminal  gnome-themes-extra gvfs mousetweaks mutter nautilus rygel tracker xdg-user-dirs-gtk
 \section{Systemkonfiguration }
 \begin{itemize}
 \item Wir müssen die UUID unserer verschlüsselten Partition herausfinden
